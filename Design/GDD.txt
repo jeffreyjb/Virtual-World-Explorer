@@ -1,0 +1,23 @@
+Virtual World Explorer Game Design Document
+___________________________________________
+
+-------
+Concept
+-------
+- Explore an environment with several activities in Virtual Reality
+- Interact with objects in the scene and play around
+- Participate in fun challenges based on the object you pick up
+
+-----
+Rules
+-----
+- Teleport using the left hand controller
+- Rotate and move (with extreme restriction to limit Motion Sickness) using the right hand controller
+- Grab objects using grips
+
+------------
+Requirements
+------------
+- HMD: Oculus Rift S
+- Static Mesh: Some gun for shooting
+- Textures: Futuristic landscape (maybe infinite neon crosshatch similar to Tron)

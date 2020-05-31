@@ -1,0 +1,27 @@
+Making Wireframe Material
+-------------------------
+- https://www.youtube.com/watch?v=nHTWYqHb6Aw 
+- New Material
+- In material editor:
+  - Details > Material > Wireframe: false
+  - Details > Material > Blend Mode: Masked
+- See my material M_NeonWire for blueprint nodes
+- Can preview steps of material by right clicking node and "Start Previewing"
+- For max node set b to 0
+- Using ObjectPositionWS and World Position which is absolute
+- If we want to have black instead of transparent, don't have a masked blend mode and connect dot product to color with multiply into emissive
+  - Otherwise attach to opacity mask instead
+  - Make sure unlit if you want it to be black and not reflecting 
+
+Importing Hands
+---------------
+- Open project with hands (such as oculus sample)
+  - C:\Dev\UE4Source\Oculus424\UnrealEngine\Samples\Oculus\HandSample
+- Select the Blueprint Utils, VRCharacter and NewGameMode
+- Asset Actions > Migrate
+- Migrate to a content folder !!!IMPORTANT!!! then move to some other folder
+- In the sample project, make sure to copy info in the Level blueprint over to our level blueprint
+  - May need to replace references to VRCharacter casting and getting controller / hand from the casting
+  - Make sure in VRCharacter to open blueprint and set either the controller or hand to not be visible
+- Update the Project Settings > Maps and Modes to use our NewGameMode/VRGameMode
+- Copy the controller bindings over from the config folder DefaultInput.ini (or map whatever we want to)

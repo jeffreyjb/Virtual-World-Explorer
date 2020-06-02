@@ -23,5 +23,24 @@ Importing Hands
 - In the sample project, make sure to copy info in the Level blueprint over to our level blueprint
   - May need to replace references to VRCharacter casting and getting controller / hand from the casting
   - Make sure in VRCharacter to open blueprint and set either the controller or hand to not be visible
-- Update the Project Settings > Maps and Modes to use our NewGameMode/VRGameMode
+- Update the Project Settings > Maps and Modes to use our NewGameMode
 - Copy the controller bindings over from the config folder DefaultInput.ini (or map whatever we want to)
+- Good start, but I want a foolproof method of getting a good VR character with hands I have full control over...
+
+Custom Hand / VR Character Update
+---------------------------------
+- Create a VRCommon folder in content to house everything
+- Create a new game mode and name it VRGameMode
+- Create new C++ class > Based on Character and name it CommonVRCharacter
+- Create a Blueprint based on the C++ class and name it BP_CommonVRCharacter
+  - Need to set the BP_CommonVRCharacter crouched eye height and base eye height to 0
+  - Set Pawn > Use Controller Rotation Yaw: false
+  - Set Actor Spawn Collision handling method: Always spawn, ignore collision
+  - On CapsuleComponent
+    - Shape > Radius: 0 and Shape > Capsule Half Height: 0
+    - Navigation > Area Class: NavArea_Obstacle and Navigation > Dynamic Obstacle: false  
+- In the VRGameMode, set the Default Pawn class to be BP_CommonVRCharacter
+- Add all childing and blueprint construction to C++ classes
+- Create a CommonVRHandController class
+- Create a BP_CommonVRLeftHandController and BP_CommonVRRightHandController blueprint based on the above class
+  - Set the childhand to match the proper hand blueprint

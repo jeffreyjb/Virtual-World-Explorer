@@ -6,6 +6,9 @@
 #include "GameFramework/Character.h"
 #include "CommonVRCharacter.generated.h"
 
+#define LEFT_HAND 0
+#define RIGHT_HAND 1
+
 class ACommonVRHandController;
 
 UCLASS()
@@ -23,7 +26,15 @@ protected:
   virtual void BeginPlay() override;
 
 private:
-  // Components
+  // Private Class Methods
+  void SpawnHands();
+
+  void UpdateDestinationMarker();
+  bool FindTeleportDestination(bool bHand, TArray<FVector> &OutPath, FVector &OutLocation);
+  //void DrawTeleportPath(const TArray<FVector> &Path);
+  //void UpdateSpline(const TArray<FVector> &Path);
+
+  // Base Character Components
   UPROPERTY(VisibleAnywhere)
   class USceneComponent *VRRoot;
 
@@ -39,6 +50,29 @@ private:
   UPROPERTY(EditDefaultsOnly)
   TSubclassOf<ACommonVRHandController> RightHandControllerClass;
 
-  // Private Class Methods
-  void SpawnHands();
+  // Teleportation Components
+  UPROPERTY(VisibleAnywhere)
+  class USplineComponent *TeleportPath;
+
+  UPROPERTY(VisibleAnywhere)
+  class UStaticMeshComponent *DestinationMarker;
+
+  // Teleportation Configuration
+  UPROPERTY(EditAnywhere)
+  float TeleportProjectileRadius = 10.f;
+
+  UPROPERTY(EditAnywhere)
+  float TeleportProjectileSpeed = 1000.f; // 10 cm/s
+
+  UPROPERTY(EditAnywhere)
+  float TeleportSimulationTime = 3.f; // 10 s
+
+  UPROPERTY(EditAnywhere)
+  FVector TeleportProjectionExtent = FVector(100, 100, 100);
+
+  UPROPERTY(EditAnywhere)
+  bool bTeleportEnabled = false;
+
+  UPROPERTY(EditAnywhere)
+  int32 ActiveTeleportHand = -1;
 };

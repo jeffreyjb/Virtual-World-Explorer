@@ -31,6 +31,7 @@ private:
 
   void UpdateDestinationMarker();
   bool FindTeleportDestination(bool bHand, TArray<FVector> &OutPath, FVector &OutLocation);
+  void UpdateTeleportationRotation(float throttle);
   //void DrawTeleportPath(const TArray<FVector> &Path);
   //void UpdateSpline(const TArray<FVector> &Path);
 

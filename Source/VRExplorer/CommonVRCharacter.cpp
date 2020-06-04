@@ -6,7 +6,9 @@
 #include "Components/StaticMeshComponent.h"
 
 #include "NavigationSystem.h"
+#include "Engine/World.h"
 #include "Kismet/GameplayStatics.h"
+#include "DrawDebugHelpers.h"
 
 #include "CommonVRHandController.h"
 
@@ -49,6 +51,9 @@ void ACommonVRCharacter::Tick(float DeltaTime)
 void ACommonVRCharacter::SetupPlayerInputComponent(UInputComponent *PlayerInputComponent)
 {
   Super::SetupPlayerInputComponent(PlayerInputComponent);
+
+  PlayerInputComponent->BindAxis(TEXT("LThumbX"), this, &ACommonVRCharacter::UpdateTeleportationRotation);
+  PlayerInputComponent->BindAxis(TEXT("LThumbY"), this, &ACommonVRCharacter::UpdateTeleportationRotation);
 }
 
 /**************
@@ -147,4 +152,28 @@ bool ACommonVRCharacter::FindTeleportDestination(bool bHand, TArray<FVector> &Ou
 
   OutLocation = NavLocation.Location;
   return true;
+}
+
+void ACommonVRCharacter::UpdateTeleportationRotation(float throttle)
+{
+  float ThumbX = GetInputAxisValue(TEXT("LThumbX"));
+  float ThumbY = GetInputAxisValue(TEXT("LThumbY"));
+
+  float MyForwardX = GetWorld()->GetFirstPlayerController()->PlayerCameraManager->GetActorForwardVector().X;
+  float MyForwardY = GetWorld()->GetFirstPlayerController()->PlayerCameraManager->GetActorForwardVector().Y;
+  float MyRightX = GetWorld()->GetFirstPlayerController()->PlayerCameraManager->GetActorRightVector().X;
+  float MyRightY = GetWorld()->GetFirstPlayerController()->PlayerCameraManager->GetActorRightVector().Y;
+
+  float XVal = ThumbX * (MyRightX) + ThumbY * (MyForwardX);
+  float YVal = ThumbX * (MyRightY) + ThumbY * (MyForwardY);
+  FVector FinalDirection(XVal, YVal, 1);
+  FinalDirection = FinalDirection.GetSafeNormal();
+  FinalDirection = FVector(FinalDirection.X * 10, FinalDirection.Y * 10, FinalDirection.Z);
+  FRotator MyRot;
+  MyRot.Yaw = FinalDirection.Rotation().Yaw;
+
+  if (!RotationIndication)
+    return;
+
+  RotationIndication->SetRelativeRotation(MyRot);
 }

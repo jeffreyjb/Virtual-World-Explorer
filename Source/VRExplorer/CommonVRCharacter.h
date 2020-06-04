@@ -57,6 +57,9 @@ private:
   UPROPERTY(VisibleAnywhere)
   class UStaticMeshComponent *DestinationMarker;
 
+  UPROPERTY(VisibleAnywhere)
+  UStaticMeshComponent *RotationIndication;
+
   // Teleportation Configuration
   UPROPERTY(EditAnywhere)
   float TeleportProjectileRadius = 10.f;

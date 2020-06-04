@@ -27,6 +27,9 @@ ACommonVRCharacter::ACommonVRCharacter()
   DestinationMarker = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("DestinationMarker"));
   DestinationMarker->SetupAttachment(GetRootComponent());
   DestinationMarker->SetVisibility(false);
+
+  RotationIndication = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("RotationIndication"));
+  RotationIndication->SetupAttachment(DestinationMarker);
 }
 
 void ACommonVRCharacter::BeginPlay()

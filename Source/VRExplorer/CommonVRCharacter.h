@@ -48,6 +48,9 @@ private:
   class USceneComponent *VRRoot;
 
   UPROPERTY(VisibleAnywhere)
+  class UCameraComponent *Camera;
+
+  UPROPERTY(VisibleAnywhere)
   ACommonVRHandController *LeftHandController;
 
   UPROPERTY(VisibleAnywhere)

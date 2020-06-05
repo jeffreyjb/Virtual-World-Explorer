@@ -2,6 +2,7 @@
 
 #include "CommonVRCharacter.h"
 
+#include "Camera/CameraComponent.h"
 #include "Components/SplineComponent.h"
 #include "Components/SplineMeshComponent.h"
 #include "Components/StaticMeshComponent.h"
@@ -27,6 +28,9 @@ ACommonVRCharacter::ACommonVRCharacter()
   VRRoot = CreateDefaultSubobject<USceneComponent>(TEXT("VRRoot"));
   VRRoot->SetupAttachment(GetRootComponent());
 
+  Camera = CreateDefaultSubobject<UCameraComponent>(TEXT("Camera"));
+  Camera->SetupAttachment(VRRoot);
+
   TeleportPath = CreateDefaultSubobject<USplineComponent>(TEXT("TeleportPath"));
   TeleportPath->SetupAttachment(VRRoot);
 
@@ -49,6 +53,11 @@ void ACommonVRCharacter::BeginPlay()
 void ACommonVRCharacter::Tick(float DeltaTime)
 {
   Super::Tick(DeltaTime);
+
+  FVector NewCameraOffset = Camera->GetComponentLocation() - GetActorLocation(); // Difference in pos between actor and camera
+  NewCameraOffset.Z = 0;                                                         // Only move horizontal
+  AddActorWorldOffset(NewCameraOffset);                                          // Sets up the offset
+  VRRoot->AddWorldOffset(-NewCameraOffset);
 
   UpdateDestinationMarker();
 }

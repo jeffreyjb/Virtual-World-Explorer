@@ -30,10 +30,18 @@ private:
   void SpawnHands();
 
   void UpdateDestinationMarker();
-  bool FindTeleportDestination(bool bHand, TArray<FVector> &OutPath, FVector &OutLocation);
-  void UpdateTeleportationRotation(float throttle);
-  //void DrawTeleportPath(const TArray<FVector> &Path);
-  //void UpdateSpline(const TArray<FVector> &Path);
+  bool FindTeleportDestination(TArray<FVector> &OutPath, FVector &OutLocation);
+  void UpdateTeleportationRotation();
+  void DrawTeleportPath(const TArray<FVector> &Path);
+  void UpdateSpline(const TArray<FVector> &Path);
+
+  void EnableTeleportationLeft(float throttle);
+  void EnableTeleportationRight(float throttle);
+
+  void BeginTeleportLeft();
+  void BeginTeleportRight();
+  void FinishTeleport();
+  void StartFade(float FromAlpha, float ToAlpha, FLinearColor FadeColor);
 
   // Base Character Components
   UPROPERTY(VisibleAnywhere)
@@ -61,6 +69,15 @@ private:
   UPROPERTY(VisibleAnywhere)
   UStaticMeshComponent *RotationIndication;
 
+  UPROPERTY(VisibleAnywhere)
+  TArray<class USplineMeshComponent *> TeleportPathMeshPool;
+
+  UPROPERTY(EditDefaultsOnly)
+  class UStaticMesh *TeleportArcMesh;
+
+  UPROPERTY(EditDefaultsOnly)
+  class UMaterialInstance *TeleportArcMaterial;
+
   // Teleportation Configuration
   UPROPERTY(EditAnywhere)
   float TeleportProjectileRadius = 10.f;
@@ -75,8 +92,14 @@ private:
   FVector TeleportProjectionExtent = FVector(100, 100, 100);
 
   UPROPERTY(EditAnywhere)
-  bool bTeleportEnabled = false;
+  int32 ActiveTeleportHand = -1;
 
   UPROPERTY(EditAnywhere)
-  int32 ActiveTeleportHand = -1;
+  float TeleportThumbstickThreshold = 0.01f;
+
+  UPROPERTY(EditAnywhere)
+  float TeleportFadeTime = 0.2f; // Half-Second fade
+
+  UPROPERTY(EditAnywhere)
+  FRotator TargetRotation;
 };

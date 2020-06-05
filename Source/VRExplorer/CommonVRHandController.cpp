@@ -38,3 +38,9 @@ void ACommonVRHandController::SetHand(EControllerHand Hand)
 {
   MotionController->SetTrackingSource(Hand);
 }
+
+void ACommonVRHandController::PairController(ACommonVRHandController *Controller)
+{
+  OtherController = Controller;
+  OtherController->OtherController = this;
+}

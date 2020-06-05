@@ -3,11 +3,15 @@
 #include "CommonVRCharacter.h"
 
 #include "Components/SplineComponent.h"
+#include "Components/SplineMeshComponent.h"
 #include "Components/StaticMeshComponent.h"
+#include "Components/CapsuleComponent.h"
 
 #include "NavigationSystem.h"
+#include "TimerManager.h"
 #include "Engine/World.h"
 #include "Kismet/GameplayStatics.h"
+#include "Materials/MaterialInstanceDynamic.h"
 #include "DrawDebugHelpers.h"
 
 #include "CommonVRHandController.h"
@@ -32,6 +36,7 @@ ACommonVRCharacter::ACommonVRCharacter()
 
   RotationIndication = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("RotationIndication"));
   RotationIndication->SetupAttachment(DestinationMarker);
+  RotationIndication->SetVisibility(false);
 }
 
 void ACommonVRCharacter::BeginPlay()
@@ -52,8 +57,14 @@ void ACommonVRCharacter::SetupPlayerInputComponent(UInputComponent *PlayerInputC
 {
   Super::SetupPlayerInputComponent(PlayerInputComponent);
 
-  PlayerInputComponent->BindAxis(TEXT("LThumbX"), this, &ACommonVRCharacter::UpdateTeleportationRotation);
-  PlayerInputComponent->BindAxis(TEXT("LThumbY"), this, &ACommonVRCharacter::UpdateTeleportationRotation);
+  PlayerInputComponent->BindAxis(TEXT("LThumbX"), this, &ACommonVRCharacter::EnableTeleportationLeft);
+  PlayerInputComponent->BindAxis(TEXT("LThumbY"), this, &ACommonVRCharacter::EnableTeleportationLeft);
+
+  PlayerInputComponent->BindAxis(TEXT("RThumbX"), this, &ACommonVRCharacter::EnableTeleportationRight);
+  PlayerInputComponent->BindAxis(TEXT("RThumbY"), this, &ACommonVRCharacter::EnableTeleportationRight);
+
+  PlayerInputComponent->BindAction(TEXT("LTeleport"), IE_Released, this, &ACommonVRCharacter::BeginTeleportLeft);
+  PlayerInputComponent->BindAction(TEXT("RTeleport"), IE_Released, this, &ACommonVRCharacter::BeginTeleportRight);
 }
 
 /**************
@@ -76,6 +87,11 @@ void ACommonVRCharacter::SpawnHands()
     RightHandController->SetHand(EControllerHand::Right);
     RightHandController->SetOwner(this); // FIX FOR 4.22
   }
+
+  if (RightHandController != nullptr && LeftHandController != nullptr)
+  {
+    LeftHandController->PairController(RightHandController);
+  }
 }
 
 void ACommonVRCharacter::UpdateDestinationMarker()
@@ -86,33 +102,36 @@ void ACommonVRCharacter::UpdateDestinationMarker()
   if (ActiveTeleportHand < 0)
     return;
 
-  bool bHasDestination = FindTeleportDestination((bool)ActiveTeleportHand, Path, NavLocation);
+  bool bHasDestination = FindTeleportDestination(Path, NavLocation);
 
-  if (bHasDestination && bTeleportEnabled)
+  if (bHasDestination && (LeftHandController->IsHandTeleporting() || RightHandController->IsHandTeleporting()))
   {
     DestinationMarker->SetVisibility(true);
+    RotationIndication->SetVisibility(true);
     DestinationMarker->SetWorldLocation(NavLocation);
-    //DrawTeleportPath(Path);
+    DrawTeleportPath(Path);
+    UpdateTeleportationRotation();
   }
   else
   {
     DestinationMarker->SetVisibility(false);
+    RotationIndication->SetVisibility(false);
 
     TArray<FVector> EmptyPath;
-    //DrawTeleportPath(EmptyPath);
+    DrawTeleportPath(EmptyPath);
   }
 }
 
-bool ACommonVRCharacter::FindTeleportDestination(bool bHand, TArray<FVector> &OutPath, FVector &OutLocation)
+bool ACommonVRCharacter::FindTeleportDestination(TArray<FVector> &OutPath, FVector &OutLocation)
 {
   FVector Start, Look;
 
-  if (bHand == LEFT_HAND)
+  if (ActiveTeleportHand == LEFT_HAND)
   {
     Start = LeftHandController->GetActorLocation();
     Look = LeftHandController->GetActorForwardVector();
   }
-  else if (bHand == RIGHT_HAND)
+  else if (ActiveTeleportHand == RIGHT_HAND)
   {
     Start = RightHandController->GetActorLocation();
     Look = RightHandController->GetActorForwardVector();
@@ -131,7 +150,7 @@ bool ACommonVRCharacter::FindTeleportDestination(bool bHand, TArray<FVector> &Ou
       this);
 
   Params.bTraceComplex = true;
-  Params.DrawDebugType = EDrawDebugTrace::ForOneFrame;
+  //Params.DrawDebugType = EDrawDebugTrace::ForOneFrame;
 
   FPredictProjectilePathResult Result;
   bool bHit = UGameplayStatics::PredictProjectilePath(this, Params, Result);
@@ -154,10 +173,25 @@ bool ACommonVRCharacter::FindTeleportDestination(bool bHand, TArray<FVector> &Ou
   return true;
 }
 
-void ACommonVRCharacter::UpdateTeleportationRotation(float throttle)
+void ACommonVRCharacter::UpdateTeleportationRotation()
 {
-  float ThumbX = GetInputAxisValue(TEXT("LThumbX"));
-  float ThumbY = GetInputAxisValue(TEXT("LThumbY"));
+
+  float ThumbX, ThumbY;
+
+  if (ActiveTeleportHand == LEFT_HAND)
+  {
+    ThumbX = GetInputAxisValue(TEXT("LThumbX"));
+    ThumbY = GetInputAxisValue(TEXT("LThumbY"));
+  }
+  else if (ActiveTeleportHand == RIGHT_HAND)
+  {
+    ThumbX = GetInputAxisValue(TEXT("RThumbX"));
+    ThumbY = GetInputAxisValue(TEXT("RThumbY"));
+  }
+  else
+  {
+    return;
+  }
 
   float MyForwardX = GetWorld()->GetFirstPlayerController()->PlayerCameraManager->GetActorForwardVector().X;
   float MyForwardY = GetWorld()->GetFirstPlayerController()->PlayerCameraManager->GetActorForwardVector().Y;
@@ -168,12 +202,127 @@ void ACommonVRCharacter::UpdateTeleportationRotation(float throttle)
   float YVal = ThumbX * (MyRightY) + ThumbY * (MyForwardY);
   FVector FinalDirection(XVal, YVal, 1);
   FinalDirection = FinalDirection.GetSafeNormal();
-  FinalDirection = FVector(FinalDirection.X * 10, FinalDirection.Y * 10, FinalDirection.Z);
-  FRotator MyRot;
-  MyRot.Yaw = FinalDirection.Rotation().Yaw;
+
+  TargetRotation.Yaw = FinalDirection.Rotation().Yaw;
 
   if (!RotationIndication)
     return;
 
-  RotationIndication->SetRelativeRotation(MyRot);
+  RotationIndication->SetRelativeRotation(TargetRotation);
+}
+
+void ACommonVRCharacter::DrawTeleportPath(const TArray<FVector> &Path)
+{
+  UpdateSpline(Path);
+
+  for (USplineMeshComponent *SplineMesh : TeleportPathMeshPool)
+  {
+    SplineMesh->SetVisibility(false);
+  }
+
+  int32 SegmentNum = Path.Num() - 1;
+  for (int32 i = 0; i < SegmentNum; ++i)
+  {
+    if (TeleportPathMeshPool.Num() <= i)
+    {
+      USplineMeshComponent *SplineMesh = NewObject<USplineMeshComponent>(this);
+      SplineMesh->SetMobility(EComponentMobility::Movable);
+      SplineMesh->AttachToComponent(TeleportPath, FAttachmentTransformRules::KeepRelativeTransform);
+      SplineMesh->SetStaticMesh(TeleportArcMesh);
+      SplineMesh->SetMaterial(0, TeleportArcMaterial);
+      SplineMesh->RegisterComponent(); // Need this to make sure component exists
+
+      TeleportPathMeshPool.Add(SplineMesh);
+    }
+
+    USplineMeshComponent *SplineMesh = TeleportPathMeshPool[i];
+    SplineMesh->SetVisibility(true);
+
+    FVector StartPos, StartTangent, EndPos, EndTangent;
+    TeleportPath->GetLocalLocationAndTangentAtSplinePoint(i, StartPos, StartTangent);
+    TeleportPath->GetLocalLocationAndTangentAtSplinePoint(i + 1, EndPos, EndTangent);
+    SplineMesh->SetStartAndEnd(StartPos, StartTangent, EndPos, EndTangent);
+  }
+}
+
+void ACommonVRCharacter::UpdateSpline(const TArray<FVector> &Path)
+{
+  TeleportPath->ClearSplinePoints(false); // false so we don't update spline until we add all points and update once at end
+  for (int32 i = 0; i < Path.Num(); ++i)
+  {
+    FVector LocalPosition = TeleportPath->GetComponentTransform().InverseTransformPosition(Path[i]);
+    FSplinePoint Point(i, LocalPosition, ESplinePointType::Curve);
+    TeleportPath->AddPoint(Point, false);
+  }
+  TeleportPath->UpdateSpline(); // Update here
+}
+
+void ACommonVRCharacter::EnableTeleportationLeft(float throttle)
+{
+  if ((throttle < -TeleportThumbstickThreshold || throttle > TeleportThumbstickThreshold) && !(RightHandController->IsHandTeleporting()))
+  {
+    ActiveTeleportHand = LEFT_HAND;
+    LeftHandController->SetHandTeleporting(true);
+  }
+  else
+  {
+    LeftHandController->SetHandTeleporting(false);
+  }
+}
+
+void ACommonVRCharacter::EnableTeleportationRight(float throttle)
+{
+  if ((throttle < -TeleportThumbstickThreshold || throttle > TeleportThumbstickThreshold) && !(LeftHandController->IsHandTeleporting()))
+  {
+    ActiveTeleportHand = RIGHT_HAND;
+    RightHandController->SetHandTeleporting(true);
+  }
+  else
+  {
+    RightHandController->SetHandTeleporting(false);
+  }
+}
+
+void ACommonVRCharacter::BeginTeleportLeft()
+{
+  if (!LeftHandController->IsHandTeleporting())
+  {
+    return;
+  }
+  StartFade(0, 1, FLinearColor::Gray);
+
+  FTimerHandle TimerHandle;
+  GetWorldTimerManager().SetTimer(TimerHandle, this, &ACommonVRCharacter::FinishTeleport, TeleportFadeTime);
+}
+
+void ACommonVRCharacter::BeginTeleportRight()
+{
+  if (!RightHandController->IsHandTeleporting())
+  {
+    return;
+  }
+  StartFade(0, 1, FLinearColor::Gray);
+
+  FTimerHandle TimerHandle;
+  GetWorldTimerManager().SetTimer(TimerHandle, this, &ACommonVRCharacter::FinishTeleport, TeleportFadeTime);
+}
+
+void ACommonVRCharacter::FinishTeleport()
+{
+  FVector Destination = DestinationMarker->GetComponentLocation();
+  Destination += GetCapsuleComponent()->GetScaledCapsuleHalfHeight() * GetActorUpVector();
+  SetActorLocation(Destination);
+  //SetActorRotation(TargetRotation);
+  //GetWorld()->GetFirstPlayerController()->PlayerCameraManager->SetActorRotation(TargetRotation);
+
+  StartFade(1, 0, FLinearColor::Gray);
+}
+
+void ACommonVRCharacter::StartFade(float FromAlpha, float ToAlpha, FLinearColor FadeColor)
+{
+  APlayerController *PC = Cast<APlayerController>(GetController());
+  if (PC != nullptr)
+  {
+    PC->PlayerCameraManager->StartCameraFade(FromAlpha, ToAlpha, TeleportFadeTime, FadeColor);
+  }
 }

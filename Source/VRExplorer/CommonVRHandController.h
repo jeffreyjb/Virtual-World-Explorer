@@ -20,6 +20,10 @@ public:
 
   // Public Class Methods
   void SetHand(EControllerHand Hand);
+  void PairController(ACommonVRHandController *Controller);
+
+  bool IsHandTeleporting() { return bIsTeleporting; }
+  void SetHandTeleporting(bool TeleportStatus) { bIsTeleporting = TeleportStatus; }
 
 protected:
   virtual void BeginPlay() override;
@@ -30,4 +34,9 @@ private:
 
   UPROPERTY(VisibleAnywhere)
   class UChildActorComponent *ChildHand;
+
+  ACommonVRHandController *OtherController;
+
+  // State
+  bool bIsTeleporting = false;
 };

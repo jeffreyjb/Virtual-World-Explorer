@@ -109,4 +109,7 @@ private:
   // Rotation Configuration
   UPROPERTY(EditAnywhere)
   FRotator TargetRotation;
+
+  // State
+  bool bHasDestination = false;
 };

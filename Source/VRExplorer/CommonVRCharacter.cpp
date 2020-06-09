@@ -74,6 +74,9 @@ void ACommonVRCharacter::SetupPlayerInputComponent(UInputComponent *PlayerInputC
  *******************/
 void ACommonVRCharacter::BeginTeleport()
 {
+  if (!bHasDestination)
+    return;
+
   StartFade(0, 1, FLinearColor::Gray);
   FTimerHandle TimerHandle;
   GetWorldTimerManager().SetTimer(TimerHandle, this, &ACommonVRCharacter::FinishTeleport, TeleportFadeTime);
@@ -164,7 +167,7 @@ void ACommonVRCharacter::UpdateDestinationMarker()
   if (ActiveTeleportHand < 0)
     return;
 
-  bool bHasDestination = FindTeleportDestination(Path, NavLocation);
+  bHasDestination = FindTeleportDestination(Path, NavLocation);
 
   if (bHasDestination && (LeftHandController->IsHandTeleporting() || RightHandController->IsHandTeleporting()))
   {

@@ -38,8 +38,10 @@ private:
   void EnableTeleportationLeft(float throttle);
   void EnableTeleportationRight(float throttle);
 
-  void BeginTeleportLeft();
-  void BeginTeleportRight();
+  void RotatePlayerLeftHand(float throttle);
+  void RotatePlayerRightHand(float throttle);
+
+  void BeginTeleport();
   void FinishTeleport();
   void StartFade(float FromAlpha, float ToAlpha, FLinearColor FadeColor);
 
@@ -98,11 +100,24 @@ private:
   int32 ActiveTeleportHand = -1;
 
   UPROPERTY(EditAnywhere)
-  float TeleportThumbstickThreshold = 0.01f;
+  float TeleportThumbstickThreshold = 0.75f;
 
   UPROPERTY(EditAnywhere)
   float TeleportFadeTime = 0.2f; // Half-Second fade
 
   UPROPERTY(EditAnywhere)
   FRotator TargetRotation;
+
+  // Rotation States
+  UPROPERTY(EditAnywhere)
+  float RotationThumbstickThreshold = 0.9f;
+
+  UPROPERTY(EditAnywhere)
+  float AngleToRotateBy = 45.f;
+
+  UPROPERTY(EditAnywhere)
+  bool bRotateToLeftReady = false;
+
+  UPROPERTY(EditAnywhere)
+  bool bRotateToRightReady = false;
 };

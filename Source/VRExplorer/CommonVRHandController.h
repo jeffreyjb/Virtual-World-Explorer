@@ -25,6 +25,9 @@ public:
   bool IsHandTeleporting() { return bIsTeleporting; }
   void SetHandTeleporting(bool TeleportStatus) { bIsTeleporting = TeleportStatus; }
 
+  bool IsHandRotating() { return bIsRotating; }
+  void SetHandRotating(bool RotateStatus) { bIsRotating = RotateStatus; }
+
 protected:
   virtual void BeginPlay() override;
 
@@ -39,4 +42,5 @@ private:
 
   // State
   bool bIsTeleporting = false;
+  bool bIsRotating = false;
 };

@@ -66,40 +66,93 @@ void ACommonVRCharacter::SetupPlayerInputComponent(UInputComponent *PlayerInputC
 {
   Super::SetupPlayerInputComponent(PlayerInputComponent);
 
-  PlayerInputComponent->BindAxis(TEXT("LThumbX"), this, &ACommonVRCharacter::RotatePlayerLeftHand);
-  PlayerInputComponent->BindAxis(TEXT("LThumbY"), this, &ACommonVRCharacter::EnableTeleportationLeft);
-
-  PlayerInputComponent->BindAxis(TEXT("RThumbX"), this, &ACommonVRCharacter::RotatePlayerRightHand);
-  PlayerInputComponent->BindAxis(TEXT("RThumbY"), this, &ACommonVRCharacter::EnableTeleportationRight);
-
-  //PlayerInputComponent->BindAction(TEXT("LTeleport"), IE_Released, this, &ACommonVRCharacter::BeginTeleportLeft);
-  //PlayerInputComponent->BindAction(TEXT("RTeleport"), IE_Released, this, &ACommonVRCharacter::BeginTeleportRight);
+  PInComponent = PlayerInputComponent;
 }
 
-/**************
- Class Methods
- *************/
+/********************
+ Public Class Methods
+ *******************/
+void ACommonVRCharacter::BeginTeleport()
+{
+  StartFade(0, 1, FLinearColor::Gray);
+  FTimerHandle TimerHandle;
+  GetWorldTimerManager().SetTimer(TimerHandle, this, &ACommonVRCharacter::FinishTeleport, TeleportFadeTime);
+}
+
+void ACommonVRCharacter::RotateThePlayer(float YawIn)
+{
+  FRotator Rot = VRRoot->GetRelativeRotation();
+  Rot.Yaw += YawIn;
+  VRRoot->SetWorldRotation(Rot);
+}
+
+void ACommonVRCharacter::UpdateTeleportationRotation()
+{
+
+  float ThumbX, ThumbY;
+
+  if (ActiveTeleportHand == LEFT_HAND)
+  {
+    ThumbX = GetInputAxisValue(TEXT("LThumbX"));
+    ThumbY = GetInputAxisValue(TEXT("LThumbY"));
+  }
+  else if (ActiveTeleportHand == RIGHT_HAND)
+  {
+    ThumbX = GetInputAxisValue(TEXT("RThumbX"));
+    ThumbY = GetInputAxisValue(TEXT("RThumbY"));
+  }
+  else
+  {
+    return;
+  }
+
+  float MyForwardX = GetWorld()->GetFirstPlayerController()->PlayerCameraManager->GetActorForwardVector().X;
+  float MyForwardY = GetWorld()->GetFirstPlayerController()->PlayerCameraManager->GetActorForwardVector().Y;
+  float MyRightX = GetWorld()->GetFirstPlayerController()->PlayerCameraManager->GetActorRightVector().X;
+  float MyRightY = GetWorld()->GetFirstPlayerController()->PlayerCameraManager->GetActorRightVector().Y;
+
+  float XVal = ThumbX * (MyRightX) + ThumbY * (MyForwardX);
+  float YVal = ThumbX * (MyRightY) + ThumbY * (MyForwardY);
+  FVector FinalDirection(XVal, YVal, 1);
+  FinalDirection = FinalDirection.GetSafeNormal();
+
+  TargetRotation.Yaw = FinalDirection.Rotation().Yaw;
+
+  if (!RotationIndication)
+    return;
+
+  RotationIndication->SetRelativeRotation(TargetRotation);
+}
+
+/*********************
+ Private Class Methods
+ ********************/
 void ACommonVRCharacter::SpawnHands()
 {
   LeftHandController = GetWorld()->SpawnActor<ACommonVRHandController>(LeftHandControllerClass);
   if (LeftHandController != nullptr)
   {
     LeftHandController->AttachToComponent(VRRoot, FAttachmentTransformRules::KeepRelativeTransform);
-    LeftHandController->SetHand(EControllerHand::Left);
-    LeftHandController->SetOwner(this); // FIX FOR 4.22
+    LeftHandController->SetHand(LEFT_HAND);
+    LeftHandController->SetParentVRChar(this);
+    LeftHandController->SetOwner(this);
   }
 
   RightHandController = GetWorld()->SpawnActor<ACommonVRHandController>(RightHandControllerClass);
   if (RightHandController != nullptr)
   {
     RightHandController->AttachToComponent(VRRoot, FAttachmentTransformRules::KeepRelativeTransform);
-    RightHandController->SetHand(EControllerHand::Right);
-    RightHandController->SetOwner(this); // FIX FOR 4.22
+    RightHandController->SetHand(RIGHT_HAND);
+    RightHandController->SetParentVRChar(this);
+    RightHandController->SetOwner(this);
   }
 
   if (RightHandController != nullptr && LeftHandController != nullptr)
   {
     LeftHandController->PairController(RightHandController);
+
+    LeftHandController->BindInputs();
+    RightHandController->BindInputs();
   }
 }
 
@@ -181,44 +234,6 @@ bool ACommonVRCharacter::FindTeleportDestination(TArray<FVector> &OutPath, FVect
   return true;
 }
 
-void ACommonVRCharacter::UpdateTeleportationRotation()
-{
-
-  float ThumbX, ThumbY;
-
-  if (ActiveTeleportHand == LEFT_HAND)
-  {
-    ThumbX = GetInputAxisValue(TEXT("LThumbX"));
-    ThumbY = GetInputAxisValue(TEXT("LThumbY"));
-  }
-  else if (ActiveTeleportHand == RIGHT_HAND)
-  {
-    ThumbX = GetInputAxisValue(TEXT("RThumbX"));
-    ThumbY = GetInputAxisValue(TEXT("RThumbY"));
-  }
-  else
-  {
-    return;
-  }
-
-  float MyForwardX = GetWorld()->GetFirstPlayerController()->PlayerCameraManager->GetActorForwardVector().X;
-  float MyForwardY = GetWorld()->GetFirstPlayerController()->PlayerCameraManager->GetActorForwardVector().Y;
-  float MyRightX = GetWorld()->GetFirstPlayerController()->PlayerCameraManager->GetActorRightVector().X;
-  float MyRightY = GetWorld()->GetFirstPlayerController()->PlayerCameraManager->GetActorRightVector().Y;
-
-  float XVal = ThumbX * (MyRightX) + ThumbY * (MyForwardX);
-  float YVal = ThumbX * (MyRightY) + ThumbY * (MyForwardY);
-  FVector FinalDirection(XVal, YVal, 1);
-  FinalDirection = FinalDirection.GetSafeNormal();
-
-  TargetRotation.Yaw = FinalDirection.Rotation().Yaw;
-
-  if (!RotationIndication)
-    return;
-
-  RotationIndication->SetRelativeRotation(TargetRotation);
-}
-
 void ACommonVRCharacter::DrawTeleportPath(const TArray<FVector> &Path)
 {
   UpdateSpline(Path);
@@ -263,142 +278,6 @@ void ACommonVRCharacter::UpdateSpline(const TArray<FVector> &Path)
     TeleportPath->AddPoint(Point, false);
   }
   TeleportPath->UpdateSpline(); // Update here
-}
-
-void ACommonVRCharacter::EnableTeleportationLeft(float throttle)
-{
-  // If we are already in teleportation selection
-  if (LeftHandController->IsHandTeleporting())
-  {
-    UpdateTeleportationRotation();
-    float ThumbX = GetInputAxisValue(TEXT("LThumbX"));
-    float TotalThrottle = ThumbX * ThumbX + throttle * throttle;
-    float ThrottleThreshSquare = TeleportThumbstickThreshold * TeleportThumbstickThreshold;
-    if (TotalThrottle < ThrottleThreshSquare)
-    {
-      BeginTeleport();
-      LeftHandController->SetHandTeleporting(false);
-    }
-  }
-
-  // Start teleportation selection if we breach our threshold value
-  if ((throttle < -TeleportThumbstickThreshold || throttle > TeleportThumbstickThreshold) && !(RightHandController->IsHandTeleporting()))
-  {
-    ActiveTeleportHand = LEFT_HAND;
-    LeftHandController->SetHandTeleporting(true);
-  }
-}
-
-void ACommonVRCharacter::EnableTeleportationRight(float throttle)
-{
-  // If we are already in teleportation selection
-  if (RightHandController->IsHandTeleporting())
-  {
-    UpdateTeleportationRotation();
-    float ThumbX = GetInputAxisValue(TEXT("RThumbX"));
-    float TotalThrottle = ThumbX * ThumbX + throttle * throttle;
-    float ThrottleThreshSquare = TeleportThumbstickThreshold * TeleportThumbstickThreshold;
-    if (TotalThrottle < ThrottleThreshSquare)
-    {
-      BeginTeleport();
-      RightHandController->SetHandTeleporting(false);
-    }
-  }
-
-  // Start teleportation selection if we breach our threshold value
-  if ((throttle < -TeleportThumbstickThreshold || throttle > TeleportThumbstickThreshold) && !(LeftHandController->IsHandTeleporting()))
-  {
-    ActiveTeleportHand = RIGHT_HAND;
-    RightHandController->SetHandTeleporting(true);
-  }
-}
-
-void ACommonVRCharacter::RotatePlayerLeftHand(float throttle)
-{
-  if (LeftHandController->IsHandTeleporting() || RightHandController->IsHandRotating())
-    return;
-
-  if (!bRotateToLeftReady && !bRotateToRightReady)
-  {
-    if (throttle < -RotationThumbstickThreshold)
-    {
-      bRotateToLeftReady = true;
-      LeftHandController->SetHandRotating(true);
-      return;
-    }
-    if (throttle > RotationThumbstickThreshold)
-    {
-      bRotateToRightReady = true;
-      LeftHandController->SetHandRotating(true);
-      return;
-    }
-  }
-
-  if (bRotateToLeftReady && throttle >= -RotationThumbstickThreshold)
-  {
-    FRotator Rot = VRRoot->GetRelativeRotation();
-    Rot.Yaw -= 30;
-    VRRoot->SetWorldRotation(Rot);
-    bRotateToLeftReady = false;
-    LeftHandController->SetHandRotating(false);
-  }
-
-  if (bRotateToRightReady && throttle <= RotationThumbstickThreshold)
-  {
-    FRotator Rot = VRRoot->GetRelativeRotation();
-    Rot.Yaw += 30;
-    VRRoot->SetWorldRotation(Rot);
-    bRotateToRightReady = false;
-    LeftHandController->SetHandRotating(false);
-  }
-}
-
-void ACommonVRCharacter::RotatePlayerRightHand(float throttle)
-{
-  if (RightHandController->IsHandTeleporting() || LeftHandController->IsHandRotating())
-    return;
-
-  if (!bRotateToLeftReady && !bRotateToRightReady)
-  {
-    if (throttle < -RotationThumbstickThreshold)
-    {
-      bRotateToLeftReady = true;
-      RightHandController->SetHandRotating(true);
-      return;
-    }
-    if (throttle > RotationThumbstickThreshold)
-    {
-      bRotateToRightReady = true;
-      RightHandController->SetHandRotating(true);
-      return;
-    }
-  }
-
-  if (bRotateToLeftReady && throttle >= -RotationThumbstickThreshold)
-  {
-    FRotator Rot = VRRoot->GetRelativeRotation();
-    Rot.Yaw -= AngleToRotateBy;
-    VRRoot->SetWorldRotation(Rot);
-    bRotateToLeftReady = false;
-    RightHandController->SetHandRotating(false);
-  }
-
-  if (bRotateToRightReady && throttle <= RotationThumbstickThreshold)
-  {
-    FRotator Rot = VRRoot->GetRelativeRotation();
-    Rot.Yaw += AngleToRotateBy;
-    VRRoot->SetWorldRotation(Rot);
-    bRotateToRightReady = false;
-    RightHandController->SetHandRotating(false);
-  }
-}
-
-void ACommonVRCharacter::BeginTeleport()
-{
-  StartFade(0, 1, FLinearColor::Gray);
-
-  FTimerHandle TimerHandle;
-  GetWorldTimerManager().SetTimer(TimerHandle, this, &ACommonVRCharacter::FinishTeleport, TeleportFadeTime);
 }
 
 void ACommonVRCharacter::FinishTeleport()

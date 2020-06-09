@@ -22,6 +22,14 @@ public:
   virtual void Tick(float DeltaTime) override;
   virtual void SetupPlayerInputComponent(class UInputComponent *PlayerInputComponent) override;
 
+  // Public Class Methods
+  UInputComponent *GetPlayerInputComponent() { return PInComponent; }
+  void SetActiveTeleportHand(int32 Hand) { ActiveTeleportHand = Hand; }
+
+  void BeginTeleport();
+  void RotateThePlayer(float Yaw);
+  void UpdateTeleportationRotation();
+
 protected:
   virtual void BeginPlay() override;
 
@@ -31,17 +39,10 @@ private:
 
   void UpdateDestinationMarker();
   bool FindTeleportDestination(TArray<FVector> &OutPath, FVector &OutLocation);
-  void UpdateTeleportationRotation();
+
   void DrawTeleportPath(const TArray<FVector> &Path);
   void UpdateSpline(const TArray<FVector> &Path);
 
-  void EnableTeleportationLeft(float throttle);
-  void EnableTeleportationRight(float throttle);
-
-  void RotatePlayerLeftHand(float throttle);
-  void RotatePlayerRightHand(float throttle);
-
-  void BeginTeleport();
   void FinishTeleport();
   void StartFade(float FromAlpha, float ToAlpha, FLinearColor FadeColor);
 
@@ -57,6 +58,9 @@ private:
 
   UPROPERTY(VisibleAnywhere)
   ACommonVRHandController *RightHandController;
+
+  UPROPERTY(VisibleAnywhere)
+  UInputComponent *PInComponent;
 
   UPROPERTY(EditDefaultsOnly)
   TSubclassOf<ACommonVRHandController> LeftHandControllerClass;
@@ -100,24 +104,9 @@ private:
   int32 ActiveTeleportHand = -1;
 
   UPROPERTY(EditAnywhere)
-  float TeleportThumbstickThreshold = 0.75f;
-
-  UPROPERTY(EditAnywhere)
   float TeleportFadeTime = 0.2f; // Half-Second fade
 
+  // Rotation Configuration
   UPROPERTY(EditAnywhere)
   FRotator TargetRotation;
-
-  // Rotation States
-  UPROPERTY(EditAnywhere)
-  float RotationThumbstickThreshold = 0.9f;
-
-  UPROPERTY(EditAnywhere)
-  float AngleToRotateBy = 45.f;
-
-  UPROPERTY(EditAnywhere)
-  bool bRotateToLeftReady = false;
-
-  UPROPERTY(EditAnywhere)
-  bool bRotateToRightReady = false;
 };

@@ -30,10 +30,10 @@ public:
   void SetParentVRChar(ACommonVRCharacter *NewParentVRChar) { ParentVRChar = NewParentVRChar; }
   void BindInputs();
 
-  bool IsHandTeleporting() { return bIsTeleporting; }
+  bool IsHandTeleporting() const { return bIsTeleporting; }
   void SetHandTeleporting(bool TeleportStatus) { bIsTeleporting = TeleportStatus; }
 
-  bool IsHandRotating() { return bIsRotating; }
+  bool IsHandRotating() const { return bIsRotating; }
   void SetHandRotating(bool RotateStatus) { bIsRotating = RotateStatus; }
 
 protected:
@@ -43,6 +43,16 @@ private:
   // Private class methods
   void EnableTeleportation(float throttle);
   void RotatePlayer(float throttle);
+  void GrabObject();
+  bool CanGrab() const;
+  bool CanGrab(AActor *&OutActor) const;
+
+  // Callbacks
+  UFUNCTION()
+  void ActorBeginOverlap(AActor *OverlappedActor, AActor *OtherActor);
+
+  UFUNCTION()
+  void ActorEndOverlap(AActor *OverlappedActor, AActor *OtherActor);
 
   // Components
   UPROPERTY(VisibleAnywhere)
@@ -58,6 +68,9 @@ private:
   ACommonVRHandController *OtherController;
 
   // Configuration parameters
+  UPROPERTY(EditDefaultsOnly)
+  class UHapticFeedbackEffect_Base *HapticEffect;
+
   UPROPERTY(EditAnywhere)
   float TeleportThumbstickThreshold = 0.75f;
 

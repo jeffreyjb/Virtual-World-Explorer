@@ -6,6 +6,9 @@
 #include "Components/ChildActorComponent.h"
 #include "Components/InputComponent.h"
 
+#include "GameFramework/Pawn.h"
+#include "GameFramework/PlayerController.h"
+
 #include "Engine/World.h"
 
 /************************
@@ -26,6 +29,9 @@ ACommonVRHandController::ACommonVRHandController()
 void ACommonVRHandController::BeginPlay()
 {
   Super::BeginPlay();
+
+  OnActorBeginOverlap.AddDynamic(this, &ACommonVRHandController::ActorBeginOverlap);
+  OnActorEndOverlap.AddDynamic(this, &ACommonVRHandController::ActorEndOverlap);
 }
 
 void ACommonVRHandController::Tick(float DeltaTime)
@@ -71,13 +77,21 @@ void ACommonVRHandController::BindInputs()
 
   if (HandIdentity == LEFT_HAND)
   {
+    // Bind Axis events
     ParentPInComponent->BindAxis(TEXT("LThumbX"), this, &ACommonVRHandController::RotatePlayer);
     ParentPInComponent->BindAxis(TEXT("LThumbY"), this, &ACommonVRHandController::EnableTeleportation);
+
+    // Bind Action events
+    ParentPInComponent->BindAction(TEXT("GrabLeft"), IE_Pressed, this, &ACommonVRHandController::GrabObject);
   }
   else if (HandIdentity == RIGHT_HAND)
   {
+    // Bind Axis events
     ParentPInComponent->BindAxis(TEXT("RThumbX"), this, &ACommonVRHandController::RotatePlayer);
     ParentPInComponent->BindAxis(TEXT("RThumbY"), this, &ACommonVRHandController::EnableTeleportation);
+
+    // Bind Action events
+    ParentPInComponent->BindAction(TEXT("GrabRight"), IE_Pressed, this, &ACommonVRHandController::GrabObject);
   }
   else
   {
@@ -181,4 +195,65 @@ void ACommonVRHandController::RotatePlayer(float throttle)
     bIsRotating = false;
     return;
   }
+}
+
+void ACommonVRHandController::GrabObject()
+{
+  AActor *ObjectToGrab;
+  if (CanGrab(ObjectToGrab))
+  {
+    ObjectToGrab->DisableComponentsSimulatePhysics();
+    ObjectToGrab->AttachToActor(this, FAttachmentTransformRules::SnapToTargetNotIncludingScale);
+  }
+}
+
+bool ACommonVRHandController::CanGrab() const
+{
+  TArray<AActor *> OverlappingActors;
+  GetOverlappingActors(OverlappingActors);
+  for (AActor *OverlappingActor : OverlappingActors)
+  {
+    if (OverlappingActor->ActorHasTag(TEXT("Grabbable")))
+    {
+      return true;
+    }
+  }
+  return false;
+}
+
+bool ACommonVRHandController::CanGrab(AActor *&OutActor) const
+{
+  TArray<AActor *> OverlappingActors;
+  GetOverlappingActors(OverlappingActors);
+  for (AActor *OverlappingActor : OverlappingActors)
+  {
+    if (OverlappingActor->ActorHasTag(TEXT("Grabbable")))
+    {
+      OutActor = OverlappingActor;
+      return true;
+    }
+  }
+  return false;
+}
+
+/*****************
+ Private Callbacks
+ ****************/
+void ACommonVRHandController::ActorBeginOverlap(AActor *OverlappedActor, AActor *OtherActor)
+{
+  if (CanGrab())
+  {
+    APawn *Pawn = Cast<APawn>(GetAttachParentActor());
+    if (!Pawn)
+      return;
+    APlayerController *Controller = Cast<APlayerController>(Pawn->GetController());
+    if (!Controller)
+      return;
+
+    Controller->PlayHapticEffect(HapticEffect, MotionController->GetTrackingSource());
+  }
+}
+
+void ACommonVRHandController::ActorEndOverlap(AActor *OverlappedActor, AActor *OtherActor)
+{
 }

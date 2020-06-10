@@ -36,6 +36,9 @@ public:
   bool IsHandRotating() const { return bIsRotating; }
   void SetHandRotating(bool RotateStatus) { bIsRotating = RotateStatus; }
 
+  AActor *GetGrabbedObject() const { return GrabbedObject; }
+  void SetGrabbedObject(AActor *NewGrabbedObject) { GrabbedObject = NewGrabbedObject; }
+
 protected:
   virtual void BeginPlay() override;
 
@@ -44,6 +47,8 @@ private:
   void EnableTeleportation(float throttle);
   void RotatePlayer(float throttle);
   void GrabObject();
+  void ReleaseObject();
+
   bool CanGrab() const;
   bool CanGrab(AActor *&OutActor) const;
 
@@ -66,6 +71,9 @@ private:
 
   UPROPERTY(VisibleAnywhere)
   ACommonVRHandController *OtherController;
+
+  UPROPERTY(VisibleAnywhere)
+  AActor *GrabbedObject = nullptr;
 
   // Configuration parameters
   UPROPERTY(EditDefaultsOnly)

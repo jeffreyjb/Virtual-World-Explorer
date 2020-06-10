@@ -83,6 +83,7 @@ void ACommonVRHandController::BindInputs()
 
     // Bind Action events
     ParentPInComponent->BindAction(TEXT("GrabLeft"), IE_Pressed, this, &ACommonVRHandController::GrabObject);
+    ParentPInComponent->BindAction(TEXT("GrabLeft"), IE_Released, this, &ACommonVRHandController::ReleaseObject);
   }
   else if (HandIdentity == RIGHT_HAND)
   {
@@ -92,6 +93,7 @@ void ACommonVRHandController::BindInputs()
 
     // Bind Action events
     ParentPInComponent->BindAction(TEXT("GrabRight"), IE_Pressed, this, &ACommonVRHandController::GrabObject);
+    ParentPInComponent->BindAction(TEXT("GrabRight"), IE_Released, this, &ACommonVRHandController::ReleaseObject);
   }
   else
   {
@@ -199,12 +201,32 @@ void ACommonVRHandController::RotatePlayer(float throttle)
 
 void ACommonVRHandController::GrabObject()
 {
-  AActor *ObjectToGrab;
-  if (CanGrab(ObjectToGrab))
+  if (CanGrab(GrabbedObject))
   {
-    ObjectToGrab->DisableComponentsSimulatePhysics();
-    ObjectToGrab->AttachToActor(this, FAttachmentTransformRules::SnapToTargetNotIncludingScale);
+    if (!GrabbedObject)
+      return;
+
+    if (GrabbedObject == OtherController->GetGrabbedObject())
+    {
+      OtherController->SetGrabbedObject(nullptr);
+    }
+
+    GrabbedObject->DisableComponentsSimulatePhysics();
+    GrabbedObject->AttachToActor(this, FAttachmentTransformRules::SnapToTargetNotIncludingScale);
   }
+}
+
+void ACommonVRHandController::ReleaseObject()
+{
+  if (!GrabbedObject)
+    return;
+
+  if (UPrimitiveComponent *PrimComp = Cast<UPrimitiveComponent>(GrabbedObject->GetRootComponent()))
+  {
+    PrimComp->SetSimulatePhysics(true);
+  }
+
+  GrabbedObject->DetachFromActor(FDetachmentTransformRules::KeepRelativeTransform);
 }
 
 bool ACommonVRHandController::CanGrab() const

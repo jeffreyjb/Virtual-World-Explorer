@@ -54,11 +54,7 @@ void ACommonVRCharacter::Tick(float DeltaTime)
 {
   Super::Tick(DeltaTime);
 
-  FVector NewCameraOffset = Camera->GetComponentLocation() - GetActorLocation(); // Difference in pos between actor and camera
-  NewCameraOffset.Z = 0;                                                         // Only move horizontal
-  AddActorWorldOffset(NewCameraOffset);                                          // Sets up the offset
-  VRRoot->AddWorldOffset(-NewCameraOffset);
-
+  CalculateVROffsets();
   UpdateDestinationMarker();
 }
 
@@ -84,9 +80,9 @@ void ACommonVRCharacter::BeginTeleport()
 
 void ACommonVRCharacter::RotateThePlayer(float YawIn)
 {
-  FRotator Rot = VRRoot->GetRelativeRotation();
+  FRotator Rot = GetRootComponent()->GetRelativeRotation();
   Rot.Yaw += YawIn;
-  VRRoot->SetWorldRotation(Rot);
+  GetRootComponent()->SetRelativeRotation(Rot);
 }
 
 void ACommonVRCharacter::UpdateTeleportationRotation()
@@ -109,22 +105,20 @@ void ACommonVRCharacter::UpdateTeleportationRotation()
     return;
   }
 
-  float MyForwardX = GetWorld()->GetFirstPlayerController()->PlayerCameraManager->GetActorForwardVector().X;
-  float MyForwardY = GetWorld()->GetFirstPlayerController()->PlayerCameraManager->GetActorForwardVector().Y;
-  float MyRightX = GetWorld()->GetFirstPlayerController()->PlayerCameraManager->GetActorRightVector().X;
-  float MyRightY = GetWorld()->GetFirstPlayerController()->PlayerCameraManager->GetActorRightVector().Y;
+  FVector ForwardVec = DestinationMarker->GetComponentLocation() - GetRootComponent()->GetComponentLocation();
+  FVector RightVec = ForwardVec.RotateAngleAxis(90.f, FVector::UpVector);
 
-  float XVal = ThumbX * (MyRightX) + ThumbY * (MyForwardX);
-  float YVal = ThumbX * (MyRightY) + ThumbY * (MyForwardY);
+  // NOTE:
+  // Used to set above with two different attempted methods:
+  // float MyForwardX = GetWorld()->GetFirstPlayerController()->PlayerCameraManager->GetActorForwardVector().X;
+  // float MyRightY = GetRootComponent()->GetRightVector().Y;
+
+  float XVal = ThumbX * (RightVec.X) + ThumbY * (ForwardVec.X);
+  float YVal = ThumbX * (RightVec.Y) + ThumbY * (ForwardVec.Y);
   FVector FinalDirection(XVal, YVal, 1);
   FinalDirection = FinalDirection.GetSafeNormal();
 
   TargetRotation.Yaw = FinalDirection.Rotation().Yaw;
-
-  if (!RotationIndication)
-    return;
-
-  RotationIndication->SetRelativeRotation(TargetRotation);
 }
 
 /*********************
@@ -172,8 +166,11 @@ void ACommonVRCharacter::UpdateDestinationMarker()
   if (bHasDestination && (LeftHandController->IsHandTeleporting() || RightHandController->IsHandTeleporting()))
   {
     DestinationMarker->SetVisibility(true);
-    RotationIndication->SetVisibility(true);
     DestinationMarker->SetWorldLocation(NavLocation);
+
+    RotationIndication->SetVisibility(true);
+    RotationIndication->SetWorldRotation(TargetRotation);
+
     DrawTeleportPath(Path);
   }
   else
@@ -288,7 +285,7 @@ void ACommonVRCharacter::FinishTeleport()
   FVector Destination = DestinationMarker->GetComponentLocation();
   Destination += GetCapsuleComponent()->GetScaledCapsuleHalfHeight() * GetActorUpVector();
   SetActorLocation(Destination);
-  VRRoot->SetWorldRotation(TargetRotation);
+  GetRootComponent()->SetRelativeRotation(TargetRotation);
 
   StartFade(1, 0, FLinearColor::Gray);
 }
@@ -300,4 +297,64 @@ void ACommonVRCharacter::StartFade(float FromAlpha, float ToAlpha, FLinearColor 
   {
     PC->PlayerCameraManager->StartCameraFade(FromAlpha, ToAlpha, TeleportFadeTime, FadeColor);
   }
+}
+
+void ACommonVRCharacter::CalculateVROffsets()
+{
+  // Calculate offset for VRRoot and move the character based on offset
+  FVector NewCameraOffset = Camera->GetComponentLocation() - GetActorLocation(); // Difference in pos between actor and camera
+  NewCameraOffset.Z = 0;                                                         // Only move horizontal
+  AddActorWorldOffset(NewCameraOffset);
+  VRRoot->AddWorldOffset(-NewCameraOffset);
+
+  // Calculate rotation offset for VRRoot and make sure to not alter the location of the character
+  FVector RootLocation = VRRoot->GetComponentLocation();
+  float NewCameraRotationYaw = Camera->GetComponentRotation().Yaw - GetActorRotation().Yaw;
+  AddActorWorldRotation(FRotator(0, NewCameraRotationYaw, 0));
+  VRRoot->AddWorldRotation(FRotator(0, -NewCameraRotationYaw, 0));
+  VRRoot->SetWorldLocation(RootLocation);
+}
+
+// Add to tick to see look direction on Camera in blue, Root in red, and VRRoot in green
+void ACommonVRCharacter::DebugVRCharacterLines()
+{
+  FVector Start = Camera->GetComponentLocation();
+  Start.Z -= 30;
+  FVector End = Start + Camera->GetForwardVector() * 10000;
+
+  DrawDebugLine(
+      GetWorld(),
+      Start,
+      End,
+      FColor(0, 0, 255),
+      false,
+      0.f,
+      0,
+      5);
+
+  FVector Start2 = GetRootComponent()->GetComponentLocation();
+  FVector End2 = Start2 + GetRootComponent()->GetForwardVector() * 10000;
+
+  DrawDebugLine(
+      GetWorld(),
+      Start2,
+      End2,
+      FColor(255, 0, 0),
+      false,
+      0.f,
+      0,
+      5);
+
+  FVector Start3 = VRRoot->GetComponentLocation();
+  FVector End3 = Start3 + VRRoot->GetForwardVector() * 10000;
+
+  DrawDebugLine(
+      GetWorld(),
+      Start3,
+      End3,
+      FColor(0, 255, 0),
+      false,
+      0.f,
+      0,
+      5);
 }

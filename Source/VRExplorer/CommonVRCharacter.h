@@ -46,6 +46,9 @@ private:
   void FinishTeleport();
   void StartFade(float FromAlpha, float ToAlpha, FLinearColor FadeColor);
 
+  void CalculateVROffsets();
+  void DebugVRCharacterLines();
+
   // Base Character Components
   UPROPERTY(VisibleAnywhere)
   class USceneComponent *VRRoot;
